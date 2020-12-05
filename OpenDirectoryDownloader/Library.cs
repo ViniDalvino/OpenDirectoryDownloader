@@ -23,8 +23,7 @@ namespace OpenDirectoryDownloader
 
         public static string GetApplicationPath()
         {
-            string appPath = Assembly.GetEntryAssembly().Location;
-            appPath = Path.GetDirectoryName(appPath);
+            string appPath = AppContext.BaseDirectory;
 
             if (!appPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
             {
@@ -131,6 +130,23 @@ namespace OpenDirectoryDownloader
                 httpClient.DefaultRequestHeaders.Referrer = GetUrlDirectory(url);
                 httpResponseMessage.Dispose();
                 httpResponseMessage = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            }
+
+            if (!httpResponseMessage.IsSuccessStatusCode || httpResponseMessage.RequestMessage.RequestUri.ToString() != url)
+            {
+                string retrievedUrl = null;
+
+                if (httpResponseMessage.RequestMessage.RequestUri.ToString() != url)
+                {
+                    retrievedUrl = httpResponseMessage.RequestMessage.RequestUri.ToString();
+                }
+                else if (httpResponseMessage.Headers.Location is not null)
+                {
+                    retrievedUrl = httpResponseMessage.Headers.Location.ToString();
+                }
+
+                Logger.Warn($"Speedtest cancelled because it returns HTTP {(int)httpResponseMessage.StatusCode}{(retrievedUrl is not null ? $" with URL {retrievedUrl}" : string.Empty)}");
+                return new SpeedtestResult();
             }
 
             try
@@ -243,7 +259,22 @@ namespace OpenDirectoryDownloader
 
         private static void ClearCurrentLine()
         {
-            do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
+            try
+            {
+                if (!Console.IsOutputRedirected)
+                {
+                    Console.Write(new string('+', Console.WindowWidth).Replace("+", "\b \b"));
+                }
+                else
+                {
+                    Console.WriteLine();
+                }
+            }
+            catch
+            {
+                // Happens when console is redirected, and just to be sure
+                Console.WriteLine();
+            }
         }
 
         private static Uri GetUrlDirectory(string url)
@@ -254,6 +285,18 @@ namespace OpenDirectoryDownloader
         public static DateTime UnixTimestampToDateTime(long unixTimeStamp)
         {
             return new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc).AddSeconds(unixTimeStamp);
+        }
+
+        public static Stream GetEmbeddedResourceStream(Assembly assembly, string resourceFileName)
+        {
+            List<string> resourcePaths = assembly.GetManifestResourceNames().Where(x => x.EndsWith(resourceFileName, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (resourcePaths.Count == 1)
+            {
+                return assembly.GetManifestResourceStream(resourcePaths.Single());
+            }
+
+            return null;
         }
     }
 }

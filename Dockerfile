@@ -1,8 +1,9 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:3.1
+FROM mcr.microsoft.com/dotnet/runtime
 
-COPY . /app
 WORKDIR /app
 
-RUN dotnet build OpenDirectoryDownloader
+ADD app /app
 
-ENTRYPOINT ["./OpenDirectoryDownloader/bin/Debug/netcoreapp3.1/OpenDirectoryDownloader"]
+RUN chmod +x OpenDirectoryDownloader
+
+ENTRYPOINT ["./OpenDirectoryDownloader"]
